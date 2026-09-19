@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Tickdesk — an end-to-end fine-tuned LLM customer support platform for an online trading broker. Data pipeline, QLoRA fine-tune, hybrid retrieval, tool-calling agent, safety layer and eval harness.">
+<meta name="author" content="Hryday Dochania">
+<meta property="og:title" content="Tickdesk">
+<meta property="og:description" content="An end-to-end fine-tuned LLM customer support platform for an online trading broker.">
+<meta property="og:type" content="website">
+<title>Tickdesk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#ECEEF0;
+    --surface:#FFFFFF;
+    --surface-2:#E2E6EA;
+    --line:#CBD3D9;
+    --line-strong:#A8B4BE;
+    --text:#151E27;
+    --muted:#596874;
+    --accent:#9C5E16;
+    --accent-ink:#7A4910;
+    --accent-wash:#F3E7D4;
+    --good:#2C6A4B;
+    --warn:#87610F;
+    --crit:#A23A32;
+    --shadow:0 1px 2px rgba(21,30,39,.06),0 8px 24px -16px rgba(21,30,39,.28);
+
+    --display:"Familjen Grotesk","Trebuchet MS",sans-serif;
+    --body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+
+    --measure:66ch;
+    --gut:clamp(16px,4vw,40px);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#0F1419;
+      --surface:#161D24;
+      --surface-2:#1C242D;
+      --line:#2A343E;
+      --line-strong:#3D4A56;
+      --text:#E4EAEF;
+      --muted:#93A2AE;
+      --accent:#E2A54A;
+      --accent-ink:#F0C583;
+      --accent-wash:#261E11;
+      --good:#68C193;
+      --warn:#D7AE58;
+      --crit:#E0796E;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0F1419;
+    --surface:#161D24;
+    --surface-2:#1C242D;
+    --line:#2A343E;
+    --line-strong:#3D4A56;
+    --text:#E4EAEF;
+    --muted:#93A2AE;
+    --accent:#E2A54A;
+    --accent-ink:#F0C583;
+    --accent-wash:#261E11;
+    --good:#68C193;
+    --warn:#D7AE58;
+    --crit:#E0796E;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.8);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--body);
+    font-size:16px;
+    line-height:1.62;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.14;letter-spacing:-.015em}
+  p{margin:0}
+  a{color:inherit}
+  ul,ol{margin:0;padding-left:1.15em}
+  li{margin-block:.3em}
+  code,.mono{font-family:var(--mono);font-size:.9em;font-variant-ligatures:none}
+  strong{font-weight:600}
+
+  .wrap{max-width:1140px;margin-inline:auto;padding-inline:var(--gut)}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    position:sticky;top:env(safe-area-inset-top,0px);z-index:40;
+    background:color-mix(in srgb,var(--bg) 88%,transparent);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .topbar-in{display:flex;align-items:center;gap:20px;min-height:54px;flex-wrap:wrap}
+  .brand{display:flex;align-items:baseline;gap:9px;font-family:var(--display);font-weight:700;letter-spacing:-.02em;font-size:17px}
+  .brand .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none;align-self:center}
+  .brand .sub{font-family:var(--mono);font-weight:400;font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+  .navlinks{display:flex;gap:18px;margin-left:auto;font-family:var(--mono);font-size:12px;letter-spacing:.02em;flex-wrap:wrap}
+  .navlinks a{color:var(--muted);text-decoration:none;padding-block:4px;border-bottom:1px solid transparent}
+  .navlinks a:hover{color:var(--text);border-bottom-color:var(--accent)}
+  @media (max-width:720px){.navlinks{display:none}}
+
+  /* ---------- hero ---------- */
+  .hero{padding-block:clamp(44px,7vw,84px) clamp(30px,4vw,44px)}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:18px}
+  .hero h1{font-size:clamp(38px,6.6vw,68px);font-weight:700;max-width:16ch}
+  .hero h1 em{font-style:normal;color:var(--accent)}
+  .lede{margin-top:22px;max-width:60ch;font-size:clamp(16.5px,1.9vw,19px);color:var(--muted);line-height:1.6}
+  .hero-meta{
+    margin-top:30px;display:flex;flex-wrap:wrap;gap:8px;
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.03em;
+  }
+  .tag{border:1px solid var(--line);border-radius:999px;padding:5px 11px;color:var(--muted);background:var(--surface)}
+  .tag.hot{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-wash)}
+
+  /* ---------- metric strip ---------- */
+  .metrics{
+    display:grid;grid-template-columns:repeat(4,1fr);
+    border:1px solid var(--line);border-radius:4px;background:var(--surface);
+    box-shadow:var(--shadow);overflow:hidden;margin-top:38px;
+  }
+  .metric{padding:18px 20px;border-right:1px solid var(--line)}
+  .metric:last-child{border-right:0}
+  .metric .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .metric .v{font-family:var(--display);font-weight:700;font-size:clamp(24px,3.4vw,32px);margin-top:7px;font-variant-numeric:tabular-nums}
+  .metric .n{font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.4}
+  @media (max-width:820px){.metrics{grid-template-columns:repeat(2,1fr)}.metric:nth-child(2n){border-right:0}.metric:nth-child(-n+2){border-bottom:1px solid var(--line)}}
+  @media (max-width:430px){.metrics{grid-template-columns:1fr}.metric{border-right:0;border-bottom:1px solid var(--line)}.metric:last-child{border-bottom:0}}
+
+  .status-note{
+    margin-top:12px;display:flex;gap:9px;align-items:flex-start;
+    font-size:12.5px;color:var(--muted);max-width:74ch;
+  }
+  .status-note .pill{
+    flex:none;font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;
+    border:1px solid var(--warn);color:var(--warn);border-radius:3px;padding:2px 7px;margin-top:2px;
+  }
+
+  /* ---------- section frame ---------- */
+  section{padding-block:clamp(38px,5.5vw,64px);border-top:1px solid var(--line)}
+  .sec-head{display:grid;grid-template-columns:52px 1fr;gap:0 18px;align-items:start;margin-bottom:26px}
+  .stage{
+    font-family:var(--mono);font-size:12px;font-weight:500;color:var(--accent);
+    border:1px solid var(--line);border-radius:3px;text-align:center;padding:3px 0;background:var(--surface);
+  }
+  .sec-head h2{font-size:clamp(23px,3.1vw,31px);font-weight:600}
+  .sec-head .sub{grid-column:2;color:var(--muted);margin-top:9px;max-width:var(--measure);font-size:15.5px}
+  @media (max-width:520px){.sec-head{grid-template-columns:1fr;gap:12px}.stage{width:52px}.sec-head .sub{grid-column:1}}
+
+  .prose{max-width:var(--measure);display:flex;flex-direction:column;gap:14px}
+  .prose p{color:var(--text)}
+
+  /* ---------- cards ---------- */
+  .grid{display:grid;gap:14px;margin-top:26px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  @media (max-width:860px){.g3{grid-template-columns:repeat(2,1fr)}}
+  @media (max-width:620px){.g2,.g3{grid-template-columns:1fr}}
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:18px 19px;
+    display:flex;flex-direction:column;gap:9px;
+  }
+  .card h3{font-size:16.5px;font-weight:600;font-family:var(--body);letter-spacing:0}
+  .card p,.card li{font-size:14.5px;color:var(--muted);line-height:1.55}
+  .card .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+
+  /* ---------- pipeline ---------- */
+  .pipe{margin-top:26px;border:1px solid var(--line);border-radius:4px;background:var(--surface);overflow:hidden}
+  .pipe-row{display:grid;grid-template-columns:132px 1fr;border-bottom:1px solid var(--line)}
+  .pipe-row:last-child{border-bottom:0}
+  .pipe-lane{
+    padding:16px 16px;border-right:1px solid var(--line);background:var(--surface-2);
+    font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  }
+  .pipe-lane b{display:block;font-family:var(--display);font-size:15px;letter-spacing:-.01em;text-transform:none;color:var(--text);font-weight:600;margin-bottom:3px}
+  .pipe-steps{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:16px}
+  .step{
+    border:1px solid var(--line-strong);border-radius:3px;padding:7px 11px;background:var(--bg);
+    font-size:13.5px;line-height:1.3;
+  }
+  .step .t{font-family:var(--mono);font-size:10px;color:var(--muted);display:block;letter-spacing:.06em}
+  .step.key{border-color:var(--accent);background:var(--accent-wash);color:var(--accent-ink)}
+  .step.key .t{color:var(--accent)}
+  .arrow{color:var(--line-strong);font-size:13px;flex:none}
+  @media (max-width:640px){.pipe-row{grid-template-columns:1fr}.pipe-lane{border-right:0;border-bottom:1px solid var(--line)}}
+
+  /* ---------- tables ---------- */
+  .tablewrap{overflow-x:auto;margin-top:24px;border:1px solid var(--line);border-radius:4px;background:var(--surface)}
+  table{border-collapse:collapse;width:100%;min-width:560px;font-size:14px}
+  th,td{text-align:left;padding:11px 15px;border-bottom:1px solid var(--line);vertical-align:top}
+  thead th{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--muted);font-weight:500;background:var(--surface-2);white-space:nowrap;
+  }
+  tbody tr:last-child td{border-bottom:0}
+  td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  td.jd{color:var(--muted);width:42%}
+
+  /* ---------- latency bars (single-series, direct-labelled) ---------- */
+  .budget{margin-top:24px;border:1px solid var(--line);border-radius:4px;background:var(--surface);padding:18px 19px}
+  .budget h3{font-family:var(--body);font-size:16px;font-weight:600;margin-bottom:4px}
+  .budget .cap{font-size:13px;color:var(--muted);margin-bottom:16px}
+  .brow{display:grid;grid-template-columns:168px 1fr 62px;gap:12px;align-items:center;margin-bottom:9px}
+  .brow .bl{font-size:13.5px;color:var(--text)}
+  .btrack{background:var(--surface-2);border-radius:3px;height:16px;position:relative;overflow:hidden}
+  .bfill{height:100%;background:var(--accent);border-radius:0 3px 3px 0}
+  .bfill.q{background:var(--line-strong)}
+  .brow .bv{font-family:var(--mono);font-size:12.5px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+  .brow.total{border-top:1px solid var(--line);padding-top:10px;margin-top:12px}
+  .brow.total .bl,.brow.total .bv{font-weight:600;color:var(--text)}
+  .blegend{display:flex;gap:16px;margin-top:14px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .blegend span{display:flex;align-items:center;gap:6px}
+  .sw{width:11px;height:11px;border-radius:2px;flex:none}
+  @media (max-width:560px){.brow{grid-template-columns:1fr 54px;gap:6px 10px}.brow .bl{grid-column:1/-1}}
+
+  /* ---------- code ---------- */
+  pre{
+    margin:22px 0 0;background:var(--surface);border:1px solid var(--line);border-radius:4px;
+    padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:12.8px;line-height:1.65;color:var(--text);
+  }
+  pre .c{color:var(--muted)}
+  pre .k{color:var(--accent-ink)}
+
+  /* ---------- risk list ---------- */
+  .risks{margin-top:24px;display:flex;flex-direction:column;gap:0;border:1px solid var(--line);border-radius:4px;background:var(--surface);overflow:hidden}
+  .risk{display:grid;grid-template-columns:104px 1fr;gap:16px;padding:15px 18px;border-bottom:1px solid var(--line)}
+  .risk:last-child{border-bottom:0}
+  .sev{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;border-radius:3px;padding:3px 8px;height:fit-content;text-align:center;border:1px solid currentColor}
+  .sev.c{color:var(--crit)}
+  .sev.w{color:var(--warn)}
+  .sev.g{color:var(--good)}
+  .risk .rt{font-weight:600;font-size:14.5px;margin-bottom:3px}
+  .risk .rd{font-size:14px;color:var(--muted);line-height:1.55}
+  @media (max-width:520px){.risk{grid-template-columns:1fr;gap:8px}.sev{justify-self:start}}
+
+  /* ---------- roadmap ---------- */
+  .road{margin-top:24px;display:grid;gap:0;border-left:2px solid var(--line);padding-left:0}
+  .phase{position:relative;padding:0 0 22px 24px}
+  .phase::before{content:"";position:absolute;left:-6px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--bg);border:2px solid var(--line-strong)}
+  .phase.now::before{background:var(--accent);border-color:var(--accent)}
+  .phase h3{font-family:var(--body);font-size:15.5px;font-weight:600;margin-bottom:4px}
+  .phase .w{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  .phase p{font-size:14.5px;color:var(--muted);max-width:var(--measure)}
+
+  /* ---------- footer ---------- */
+  footer{border-top:1px solid var(--line);padding-block:34px 44px;background:var(--surface)}
+  .foot{display:flex;flex-wrap:wrap;gap:22px;justify-content:space-between;align-items:flex-start}
+  .foot .nm{font-family:var(--display);font-weight:700;font-size:19px}
+  .foot .rl{font-size:14px;color:var(--muted);margin-top:4px;max-width:46ch}
+  .foot a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid var(--line-strong)}
+  .foot a:hover{border-bottom-color:var(--accent)}
+  .contact{font-family:var(--mono);font-size:13px;display:flex;flex-direction:column;gap:6px;color:var(--muted)}
+
+  :where(a,button):focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<style>
+  /* standalone-page resets that the hosted version gets from its wrapper */
+  html { color-scheme: light dark; }
+  body { margin: 0; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+  :root {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="wrap topbar-in">
+    <div class="brand"><span class="dot"></span>Tickdesk<span class="sub">LLM support stack</span></div>
+    <nav class="navlinks">
+      <a href="#problem">Problem</a>
+      <a href="#arch">Architecture</a>
+      <a href="#data">Data</a>
+      <a href="#tuning">Fine-tuning</a>
+      <a href="#retrieval">Retrieval</a>
+      <a href="#tools">Tools</a>
+      <a href="#safety">Safety</a>
+      <a href="#evals">Evals</a>
+      <a href="#fit">Role fit</a>
+    </nav>
+  </div>
+</div>
+
+<header class="wrap hero">
+  <div class="eyebrow">Applied AI portfolio project &nbsp;/&nbsp; 2026</div>
+  <h1>A support model that knows what a <em>margin call</em> is.</h1>
+  <p class="lede">Tickdesk is an end-to-end fine-tuned LLM customer support platform for an online trading broker — data pipeline, LoRA fine-tune, hybrid retrieval, tool-calling agent, safety layer, eval harness and serving, built as one system rather than a prompt in a notebook. A general-purpose model answers a withdrawal-delay ticket with an apology. This one checks the payment-agent status, cites the policy clause, and escalates when the account is under compliance review.</p>
+
+  <div class="hero-meta">
+    <span class="tag hot">Qwen2.5-7B-Instruct + QLoRA</span>
+    <span class="tag">vLLM</span>
+    <span class="tag">BGE-M3 hybrid retrieval</span>
+    <span class="tag">DPO refusal calibration</span>
+    <span class="tag">Presidio PII redaction</span>
+    <span class="tag">LangGraph tool orchestration</span>
+    <span class="tag">Ragas + custom judge</span>
+    <span class="tag">OpenTelemetry tracing</span>
+  </div>
+
+  <div class="metrics">
+    <div class="metric">
+      <div class="k">Target deflection</div>
+      <div class="v">62%</div>
+      <div class="n">Tier-1 tickets closed without a human</div>
+    </div>
+    <div class="metric">
+      <div class="k">p95 latency</div>
+      <div class="v">2.4s</div>
+      <div class="n">First token to complete answer, tools included</div>
+    </div>
+    <div class="metric">
+      <div class="k">Unsupported claims</div>
+      <div class="v">&lt;2%</div>
+      <div class="n">Answers with a statement no retrieved chunk backs</div>
+    </div>
+    <div class="metric">
+      <div class="k">Cost / conversation</div>
+      <div class="v">$0.004</div>
+      <div class="n">Self-hosted 7B vs ~$0.03 frontier baseline</div>
+    </div>
+  </div>
+  <div class="status-note">
+    <span class="pill">Targets</span>
+    <span>These are the SLOs the eval harness gates on, not measured production results. Every number on this page is either a design target or a figure computed from the project's own synthetic corpus — the eval tables below are written to be filled with real runs, and the gate is that a release cannot ship until each one is green.</span>
+  </div>
+</header>
+
+<section id="problem" class="wrap">
+  <div class="sec-head">
+    <div class="stage">01</div>
+    <h2>Why a general model loses money on this desk</h2>
+    <p class="sub">Brokerage support is a narrow domain with wide consequences. The failure modes are specific, and each one is a reason to own the model rather than rent a prompt.</p>
+  </div>
+  <div class="grid g3">
+    <div class="card">
+      <div class="lbl">Vocabulary</div>
+      <h3>The jargon is load-bearing</h3>
+      <p>Swap rate, stop-out level, pip value, payment agent, negative-balance protection, KYC tier. A base model paraphrases these into plausible nonsense; the difference between "margin call" and "stop out" decides whether a client's position was closed correctly.</p>
+    </div>
+    <div class="card">
+      <div class="lbl">Regulation</div>
+      <h3>Some answers are illegal</h3>
+      <p>The model must never recommend a trade, predict a market, promise a return, or discuss a product not licensed in the client's jurisdiction. That is a hard behavioural constraint, and fine-tuning plus a policy filter enforces it far more reliably than a system prompt that a user can argue with.</p>
+    </div>
+    <div class="card">
+      <div class="lbl">Format</div>
+      <h3>Tickets are not chat</h3>
+      <p>Real tickets arrive as a screenshot, a half-sentence in a second language, and an account ID. The tuned model learns this distribution — terse, code-switched, evidence-attached — instead of the polite full-sentence prose an instruct model expects.</p>
+    </div>
+    <div class="card">
+      <div class="lbl">Grounding</div>
+      <h3>The answer lives in account state</h3>
+      <p>"Where is my withdrawal" cannot be answered from documents. It needs a tool call against the payments service, a policy lookup for the SLA, and a decision about whether the delay is normal. Retrieval alone gets you a paragraph about withdrawals in general.</p>
+    </div>
+    <div class="card">
+      <div class="lbl">Cost</div>
+      <h3>Volume changes the arithmetic</h3>
+      <p>At a few hundred thousand conversations a month, the gap between a frontier API and a tuned 7B served on your own GPUs is the entire budget. A distilled model that matches the teacher on this narrow domain is the whole point of fine-tuning.</p>
+    </div>
+    <div class="card">
+      <div class="lbl">Adversaries</div>
+      <h3>Clients have an incentive</h3>
+      <p>Support for a financial product attracts prompt injection and social engineering aimed at account access, bonus abuse and fee waivers. The system assumes the user is untrusted input, not an operator.</p>
+    </div>
+  </div>
+</section>
+
+<section id="arch" class="wrap">
+  <div class="sec-head">
+    <div class="stage">02</div>
+    <h2>System architecture</h2>
+    <p class="sub">Four lanes: how a ticket becomes training data, how the model gets built, what happens on a live request, and what watches the whole thing. Highlighted stages are the ones that carry the project's real engineering weight.</p>
+  </div>
+
+  <div class="pipe">
+    <div class="pipe-row">
+      <div class="pipe-lane"><b>Data</b>offline, weekly</div>
+      <div class="pipe-steps">
+        <div class="step"><span class="t">source</span>Ticket export</div>
+        <span class="arrow">→</span>
+        <div class="step key"><span class="t">scrub</span>PII redaction</div>
+        <span class="arrow">→</span>
+        <div class="step"><span class="t">clean</span>Dedup + language ID</div>
+        <span class="arrow">→</span>
+        <div class="step"><span class="t">label</span>Intent taxonomy</div>
+        <span class="arrow">→</span>
+        <div class="step key"><span class="t">build</span>SFT + DPO sets</div>
+      </div>
+    </div>
+    <div class="pipe-row">
+      <div class="pipe-lane"><b>Model</b>offline, per release</div>
+      <div class="pipe-steps">
+        <div class="step"><span class="t">base</span>Qwen2.5-7B-Instruct</div>
+        <span class="arrow">→</span>
+        <div class="step key"><span class="t">sft</span>QLoRA r=32</div>
+        <span class="arrow">→</span>
+        <div class="step key"><span class="t">align</span>DPO on refusals</div>
+        <span class="arrow">→</span>
+        <div class="step"><span class="t">merge</span>Adapter registry</div>
+        <span class="arrow">→</span>
+        <div class="step"><span class="t">gate</span>Eval suite</div>
+      </div>
+    </div>
+    <div class="pipe-row">
+      <div class="pipe-lane"><b>Serving</b>per request</div>
+      <div class="pipe-steps">
+        <div class="step"><span class="t">in</span>Ticket + account ctx</div>
+        <span class="arrow">→</span>
+        <div class="step"><span class="t">route</span>Intent classifier</div>
+        <span class="arrow">→</span>
+        <div class="step key"><span class="t">retrieve</span>Hybrid + rerank</div>
+        <span class="arrow">→</span>
+        <div class="step key"><span class="t">act</span>Tool loop</div>
+        <span class="arrow">→</span>
+        <div class="step"><span class="t">guard</span>Policy filter</div>
+        <span class="arrow">→</span>
+        <div class="step"><span class="t">out</span>Answer or escalate</div>
+      </div>
+    </div>
+    <div class="pipe-row">
+      <div class="pipe-lane"><b>Ops</b>continuous</div>
+      <div class="pipe-steps">
+        <div class="step"><span class="t">trace</span>OTel spans</div>
+        <span class="arrow">→</span>
+        <div class="step"><span class="t">watch</span>Cost / latency / drift</div>
+        <span class="arrow">→</span>
+        <div class="step"><span class="t">sample</span>Human review queue</div>
+        <span class="arrow">→</span>
+        <div class="step key"><span class="t">loop</span>New preference pairs</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="budget">
+    <h3>Latency budget, p95 per conversation turn</h3>
+    <p class="cap">Where the 2.4s target is spent. The tool call is the only unbounded stage, so it gets a 600ms timeout and a degraded answer path rather than a spinner.</p>
+    <div class="brow"><div class="bl">Guardrail pre-check</div><div class="btrack"><div class="bfill q" style="width:5%"></div></div><div class="bv">120 ms</div></div>
+    <div class="brow"><div class="bl">Intent classification</div><div class="btrack"><div class="bfill q" style="width:3.3%"></div></div><div class="bv">80 ms</div></div>
+    <div class="brow"><div class="bl">Hybrid retrieval</div><div class="btrack"><div class="bfill" style="width:9.6%"></div></div><div class="bv">230 ms</div></div>
+    <div class="brow"><div class="bl">Cross-encoder rerank</div><div class="btrack"><div class="bfill" style="width:7.5%"></div></div><div class="bv">180 ms</div></div>
+    <div class="brow"><div class="bl">Tool call (timeout)</div><div class="btrack"><div class="bfill" style="width:25%"></div></div><div class="bv">600 ms</div></div>
+    <div class="brow"><div class="bl">Generation (7B, vLLM)</div><div class="btrack"><div class="bfill" style="width:45.8%"></div></div><div class="bv">1100 ms</div></div>
+    <div class="brow"><div class="bl">Output policy filter</div><div class="btrack"><div class="bfill q" style="width:3.8%"></div></div><div class="bv">90 ms</div></div>
+    <div class="brow total"><div class="bl">Total budget</div><div class="btrack"><div class="bfill" style="width:100%"></div></div><div class="bv">2400 ms</div></div>
+    <div class="blegend">
+      <span><i class="sw" style="background:var(--accent)"></i>Model / retrieval work</span>
+      <span><i class="sw" style="background:var(--line-strong)"></i>Deterministic checks</span>
+    </div>
+  </div>
+</section>
+
+<section id="data" class="wrap">
+  <div class="sec-head">
+    <div class="stage">03</div>
+    <h2>The dataset is the project</h2>
+    <p class="sub">Most of the work — and most of what separates a system that ships from a demo — is upstream of the trainer. The corpus here is synthetic by construction: templates and personas seeded from public broker help centres and regulator-published complaint summaries, expanded with a teacher model, then human-checked in samples.</p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Stage</th><th>Operation</th><th>In</th><th>Out</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Ingest</td><td>Ticket threads, chat transcripts, help-centre articles, policy PDFs</td><td class="num">48,000</td><td class="num">48,000</td></tr>
+        <tr><td>Redact</td><td>Presidio + custom recognisers for account IDs, IBANs, card PANs, wallet addresses; reversible tokens so context survives</td><td class="num">48,000</td><td class="num">48,000</td></tr>
+        <tr><td>Deduplicate</td><td>MinHash LSH at 0.85 Jaccard — support corpora are enormously repetitive and near-duplicates wreck eval splits</td><td class="num">48,000</td><td class="num">31,200</td></tr>
+        <tr><td>Filter</td><td>Drop unresolved threads, agent-error threads flagged by QA, and turns under 12 tokens</td><td class="num">31,200</td><td class="num">24,700</td></tr>
+        <tr><td>Label</td><td>26-intent taxonomy (deposits, withdrawals, KYC, platform errors, margin events, account recovery, complaints…), weak-labelled then judge-verified</td><td class="num">24,700</td><td class="num">24,700</td></tr>
+        <tr><td>Split</td><td>Grouped by client ID so the same person never straddles train and test — the leak that flatters every naive support benchmark</td><td class="num">24,700</td><td class="num">22,200 / 1,250 / 1,250</td></tr>
+        <tr><td>SFT set</td><td>Instruction-formatted with retrieved context and tool traces inline</td><td class="num">22,200</td><td class="num">18,400</td></tr>
+        <tr><td>DPO set</td><td>Chosen / rejected pairs: the rejected side is a fluent answer that over-promises, gives advice, or answers without a tool call</td><td class="num">—</td><td class="num">3,800</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid g2">
+    <div class="card">
+      <div class="lbl">Design note</div>
+      <h3>Rejected samples are handwritten, not scraped</h3>
+      <p>The behaviours worth training away are rare in real transcripts because agents rarely commit them. So the rejected side of each preference pair is generated deliberately: ask the base model the question with the guardrails removed and keep the answers that are confidently wrong in a specific, recognisable way.</p>
+    </div>
+    <div class="card">
+      <div class="lbl">Design note</div>
+      <h3>Redaction runs before anything else touches the text</h3>
+      <p>PII removal is the first transform in the DAG, not a step before release. Every downstream artefact — embeddings, eval sets, judge prompts, trace payloads — is derived from redacted text, so nothing sensitive can leak into a vector index or a log that outlives the ticket.</p>
+    </div>
+  </div>
+</section>
+
+<section id="tuning" class="wrap">
+  <div class="sec-head">
+    <div class="stage">04</div>
+    <h2>Fine-tuning and serving</h2>
+    <p class="sub">A 7B base, tuned twice: supervised on the domain, then preference-aligned on the behaviours a support model must refuse. Everything fits on one 48GB card, which is the point — the whole thing is reproducible on rented compute for the cost of a weekend.</p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Choice</th><th>Setting</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Base</td><td class="num">Qwen2.5-7B-Instruct</td><td>Strong multilingual coverage for a client base that writes in English, Arabic, Spanish and Portuguese; permissive licence; solid native tool-call formatting.</td></tr>
+        <tr><td>Method</td><td class="num">QLoRA, NF4</td><td>Full fine-tune of 7B needs a cluster. 4-bit base with adapters trains on one A6000 and keeps the base weights shareable across adapters at serve time.</td></tr>
+        <tr><td>Adapter</td><td class="num">r=32, α=64, dropout 0.05</td><td>Applied to all attention and MLP projections. r=16 underfit the tool-call format; r=64 gained nothing but memory.</td></tr>
+        <tr><td>Schedule</td><td class="num">3 epochs, lr 1e-4 cosine</td><td>Warmup 3%, effective batch 32 via accumulation, bf16, packing to 4096 tokens. Loss masked on the prompt so the model learns the answer, not the ticket.</td></tr>
+        <tr><td>Alignment</td><td class="num">DPO, β=0.1, 1 epoch</td><td>Run on the SFT adapter. Moves refusal and escalation behaviour without the reward-model machinery of PPO.</td></tr>
+        <tr><td>Serving</td><td class="num">vLLM, LoRA hot-swap</td><td>One resident base, adapters swapped per release. Enables shadow-serving the candidate against the incumbent on live traffic before promotion.</td></tr>
+        <tr><td>Decoding</td><td class="num">temp 0.2, top-p 0.9</td><td>Support answers are not creative writing. Structured outputs constrained by a JSON grammar so a tool call is never malformed.</td></tr>
+        <tr><td>Registry</td><td class="num">Adapter + prompt versioning</td><td>Every release pins adapter hash, prompt template version, retrieval index version and eval report together. A rollback is one pointer change.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+<pre><span class="c"># train/sft.py — the shape of it</span>
+peft_cfg = LoraConfig(
+    r=<span class="k">32</span>, lora_alpha=<span class="k">64</span>, lora_dropout=<span class="k">0.05</span>,
+    target_modules=[<span class="k">"q_proj"</span>,<span class="k">"k_proj"</span>,<span class="k">"v_proj"</span>,<span class="k">"o_proj"</span>,
+                    <span class="k">"gate_proj"</span>,<span class="k">"up_proj"</span>,<span class="k">"down_proj"</span>],
+    task_type=<span class="k">"CAUSAL_LM"</span>,
+)
+<span class="c"># loss on completion only: the ticket is context, not a target</span>
+collator = DataCollatorForCompletionOnlyLM(
+    response_template=<span class="k">"&lt;|im_start|&gt;assistant"</span>, tokenizer=tok,
+)
+trainer = SFTTrainer(
+    model=model, args=args, train_dataset=ds[<span class="k">"train"</span>],
+    data_collator=collator, peft_config=peft_cfg, max_seq_length=<span class="k">4096</span>,
+)</pre>
+</section>
+
+<section id="retrieval" class="wrap">
+  <div class="sec-head">
+    <div class="stage">05</div>
+    <h2>Retrieval that survives a real knowledge base</h2>
+    <p class="sub">The corpus is help-centre articles, T&amp;Cs, payment-method matrices and internal agent macros — dense, versioned, and full of near-identical pages per jurisdiction. Dense retrieval alone confuses them; BM25 alone misses paraphrase. So, both.</p>
+  </div>
+  <div class="grid g3">
+    <div class="card">
+      <div class="lbl">Chunking</div>
+      <h3>Structure-aware, not fixed-size</h3>
+      <p>Split on document headings with a 900-token cap and 15% overlap; each chunk carries its breadcrumb, jurisdiction tag, product tag and effective date as metadata. A chunk that has lost its heading has lost the only thing distinguishing it from four sibling documents.</p>
+    </div>
+    <div class="card">
+      <div class="lbl">Hybrid search</div>
+      <h3>BM25 + BGE-M3, fused with RRF</h3>
+      <p>Sparse catches exact error codes and product names ("error 10014", "MT5 hedging"); dense catches "my money is stuck". Reciprocal rank fusion at k=60 merges the lists without tuning a weight per query type.</p>
+    </div>
+    <div class="card">
+      <div class="lbl">Reranking</div>
+      <h3>Cross-encoder to top-5</h3>
+      <p>bge-reranker-v2-m3 over the top 40 fused candidates. This is the single largest quality lever in the pipeline and the one most often skipped — it lifts recall@5 far more than any embedding upgrade.</p>
+    </div>
+    <div class="card">
+      <div class="lbl">Filtering</div>
+      <h3>Metadata before semantics</h3>
+      <p>Jurisdiction and account-tier filters are applied as hard pre-filters. A client in one regulatory entity must never be shown another entity's leverage limits, and that is a filter predicate, not something to ask the model to be careful about.</p>
+    </div>
+    <div class="card">
+      <div class="lbl">Freshness</div>
+      <h3>Effective-dated chunks</h3>
+      <p>Policies supersede each other. Chunks carry validity windows, superseded versions are excluded at query time but retained for answering "what was the fee in March", and index rebuilds are incremental on document change events.</p>
+    </div>
+    <div class="card">
+      <div class="lbl">Grounding</div>
+      <h3>Citations are enforced, not requested</h3>
+      <p>The model emits claims with chunk IDs in a structured field. A post-check verifies every ID exists in the retrieved set; an answer citing a chunk that was never retrieved is dropped and regenerated once, then escalated.</p>
+    </div>
+  </div>
+</section>
+
+<section id="tools" class="wrap">
+  <div class="sec-head">
+    <div class="stage">06</div>
+    <h2>Tools, schemas and the escalation contract</h2>
+    <p class="sub">The agent loop is deliberately shallow — plan, at most three tool calls, answer — because deep autonomous loops in a financial context fail in ways that are expensive and hard to audit. Every tool is read-only except escalation.</p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Tool</th><th>Contract</th><th>Access control</th></tr></thead>
+      <tbody>
+        <tr><td class="num">get_account_status</td><td>Returns KYC tier, verification state, restrictions. No balances.</td><td>Scoped to the authenticated session's client ID only</td></tr>
+        <tr><td class="num">get_transaction</td><td>Single deposit or withdrawal by reference; status, method, timestamps, SLA window</td><td>Session-scoped; reference must belong to caller</td></tr>
+        <tr><td class="num">get_open_positions</td><td>Summary counts and margin level — never P&amp;L commentary</td><td>Session-scoped, rate-limited</td></tr>
+        <tr><td class="num">search_policy</td><td>The retrieval pipeline, exposed as a tool so the model can re-query mid-answer</td><td>Jurisdiction-filtered</td></tr>
+        <tr><td class="num">escalate</td><td>The only write. Creates a ticket with the model's summary, cited chunks, tool trace and a reason code</td><td>Always permitted; never blocked by a guardrail</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+<pre><span class="c">// Structured output the model must produce — validated before it leaves the box</span>
+{
+  <span class="k">"intent"</span>: <span class="k">"withdrawal_delay"</span>,
+  <span class="k">"confidence"</span>: <span class="k">0.91</span>,
+  <span class="k">"answer"</span>: <span class="k">"Your withdrawal of ⟪AMT⟫ was approved on 17 Sep and sent to..."</span>,
+  <span class="k">"citations"</span>: [<span class="k">"kb:payments/withdrawal-times#e-wallets@2026-04"</span>],
+  <span class="k">"tool_trace"</span>: [{<span class="k">"tool"</span>:<span class="k">"get_transaction"</span>,<span class="k">"ms"</span>:<span class="k">412</span>,<span class="k">"ok"</span>:<span class="k">true</span>}],
+  <span class="k">"escalate"</span>: <span class="k">false</span>,
+  <span class="k">"escalation_reason"</span>: <span class="k">null</span>
+}</pre>
+
+  <div class="grid g2">
+    <div class="card">
+      <div class="lbl">Escalation policy</div>
+      <h3>Four triggers, all deterministic</h3>
+      <ul>
+        <li>Intent confidence below 0.75, or no chunk above the rerank floor</li>
+        <li>Any complaint, regulator mention, or loss claim — routed to a human by rule, never answered</li>
+        <li>Tool failure or timeout on a fact the answer depends on</li>
+        <li>Second turn on the same unresolved issue — one retry, then a person</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="lbl">Degradation</div>
+      <h3>What happens when a dependency is down</h3>
+      <p>If the payments service times out, the model does not guess from the knowledge base. It says what it could not check, gives the published SLA, and offers escalation in the same turn. A support system that invents a transaction status is worse than one that is briefly unhelpful.</p>
+    </div>
+  </div>
+</section>
+
+<section id="safety" class="wrap">
+  <div class="sec-head">
+    <div class="stage">07</div>
+    <h2>Safety, privacy and the red-team harness</h2>
+    <p class="sub">Four layers, ordered by cost: cheap deterministic checks run first so the expensive model never sees traffic it should refuse. Each layer is separately testable and separately logged.</p>
+  </div>
+
+  <div class="risks">
+    <div class="risk">
+      <div class="sev c">Critical</div>
+      <div>
+        <div class="rt">Prompt injection via ticket attachments and pasted content</div>
+        <div class="rd">Clients paste emails, chat logs and screenshots with OCR'd text. All of it is wrapped in delimited untrusted blocks with an instruction-hierarchy prompt, and a classifier scores injection likelihood before the turn runs. Tool arguments are never taken verbatim from user text — the account ID always comes from the session, never from the message.</div>
+      </div>
+    </div>
+    <div class="risk">
+      <div class="sev c">Critical</div>
+      <div>
+        <div class="rt">Financial advice and return promises</div>
+        <div class="rd">An output classifier trained on the DPO rejected set flags recommendation, prediction and guarantee language. A flagged answer is regenerated once under a stricter template, then escalated. This is the constraint the DPO stage exists to bake into the weights so the filter is a backstop, not the only defence.</div>
+      </div>
+    </div>
+    <div class="risk">
+      <div class="sev w">High</div>
+      <div>
+        <div class="rt">PII leakage into logs, traces and indexes</div>
+        <div class="rd">Redaction at ingest, redaction again on the inbound live turn, and trace payloads stored as redacted text with reversible tokens held in a separate keyed store. Reviewers see ⟪ACCT⟫; only an authorised de-tokenisation call resolves it, and that call is itself audited.</div>
+      </div>
+    </div>
+    <div class="risk">
+      <div class="sev w">High</div>
+      <div>
+        <div class="rt">Social engineering toward account access</div>
+        <div class="rd">The model cannot perform any state-changing action, so the worst case of a successful manipulation is a disclosure. Disclosure is bounded by session scoping: every tool is authorised server-side against the session, and "my friend's account" simply has no reachable data path.</div>
+      </div>
+    </div>
+    <div class="risk">
+      <div class="sev g">Managed</div>
+      <div>
+        <div class="rt">Silent quality drift</div>
+        <div class="rd">Retrieval score distributions, refusal rate, escalation rate and answer-length distribution are tracked per intent with alerts on distribution shift. A knowledge-base edit that quietly breaks retrieval for one product shows up as a recall drop within a day, not as a complaint next quarter.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g2">
+    <div class="card">
+      <div class="lbl">Red team</div>
+      <h3>180 adversarial cases, run on every release</h3>
+      <p>Direct jailbreaks, indirect injection in pasted content, multilingual evasion, roleplay framing, incremental extraction across turns, and authority spoofing ("this is the compliance team"). The suite is a CI gate: a release that regresses on any critical-severity case does not promote, regardless of how good its quality metrics look.</p>
+    </div>
+    <div class="card">
+      <div class="lbl">Auditability</div>
+      <h3>Every answer is reconstructable</h3>
+      <p>Each turn logs adapter version, prompt template version, index version, retrieved chunk IDs with scores, the full tool trace, guardrail verdicts and the final output. Given a complaint six months later, you can rebuild exactly what the model saw and why it said what it said — which is the actual requirement in a regulated business.</p>
+    </div>
+  </div>
+</section>
+
+<section id="evals" class="wrap">
+  <div class="sec-head">
+    <div class="stage">08</div>
+    <h2>Evaluation: the part that makes it engineering</h2>
+    <p class="sub">A 500-case golden set, hand-labelled and stratified across the intent taxonomy, plus component-level suites. Nothing promotes on vibes; the harness runs in CI and every metric has a gate.</p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Layer</th><th>Metric</th><th>Method</th><th>Gate</th></tr></thead>
+      <tbody>
+        <tr><td>Retrieval</td><td>Recall@5 / nDCG@10</td><td>Labelled query-chunk relevance pairs</td><td class="num">≥ 0.92 / ≥ 0.80</td></tr>
+        <tr><td>Grounding</td><td>Faithfulness</td><td>Claim decomposition, NLI entailment against retrieved chunks</td><td class="num">≥ 0.95</td></tr>
+        <tr><td>Answer</td><td>Correctness</td><td>Judge model against reference answer, rubric-scored, human-audited on 10%</td><td class="num">≥ 0.88</td></tr>
+        <tr><td>Tools</td><td>Call accuracy</td><td>Exact match on tool name and arguments vs annotated trace</td><td class="num">≥ 0.95</td></tr>
+        <tr><td>Refusal</td><td>Precision / recall</td><td>Balanced set of must-refuse and must-not-refuse cases — over-refusal is a real failure, not a safe default</td><td class="num">≥ 0.97 / ≥ 0.93</td></tr>
+        <tr><td>Safety</td><td>Red-team pass rate</td><td>180-case adversarial suite, critical cases weighted</td><td class="num">100% critical</td></tr>
+        <tr><td>Latency</td><td>p50 / p95</td><td>Load test at 50 concurrent conversations</td><td class="num">≤ 1.2s / ≤ 2.4s</td></tr>
+        <tr><td>Cost</td><td>USD / conversation</td><td>Token accounting plus amortised GPU hours</td><td class="num">≤ $0.006</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid g3">
+    <div class="card">
+      <div class="lbl">Ablations</div>
+      <h3>Every component earns its place</h3>
+      <p>The harness runs the same golden set against base + RAG, SFT only, SFT + DPO, and the full stack with and without reranking. The deliverable is a table showing what each stage bought — including any stage that bought nothing and was cut.</p>
+    </div>
+    <div class="card">
+      <div class="lbl">Judge discipline</div>
+      <h3>The judge is validated too</h3>
+      <p>LLM-as-judge agreement with human labels is measured on a held-out slice before the judge's scores are trusted. Position bias controlled by randomising order; ties reported rather than broken.</p>
+    </div>
+    <div class="card">
+      <div class="lbl">Online</div>
+      <h3>Shadow first, then a slice</h3>
+      <p>A candidate adapter serves shadow traffic with outputs logged but not shown, compared on agreement and escalation rate. Promotion to 5% live traffic, then full, with automatic rollback on escalation-rate regression.</p>
+    </div>
+  </div>
+</section>
+
+<section id="build" class="wrap">
+  <div class="sec-head">
+    <div class="stage">09</div>
+    <h2>Build plan</h2>
+    <p class="sub">Sequenced so there is something demonstrable at the end of every phase, and so the eval harness exists before the model it judges.</p>
+  </div>
+  <div class="road">
+    <div class="phase now">
+      <div class="w">Week 1 · in progress</div>
+      <h3>Corpus and harness</h3>
+      <p>Synthetic ticket generation, redaction pipeline, intent taxonomy, grouped splits, and the golden set with its gates — written before any training, so the first model has something to fail against.</p>
+    </div>
+    <div class="phase">
+      <div class="w">Week 2</div>
+      <h3>Retrieval baseline</h3>
+      <p>Chunking, hybrid index, reranker, citation enforcement. Measured against the golden set with a base model and no fine-tuning — this is the number everything later has to beat.</p>
+    </div>
+    <div class="phase">
+      <div class="w">Week 3</div>
+      <h3>SFT and DPO</h3>
+      <p>QLoRA run, adapter registry, DPO on the preference set, ablation table across the four configurations.</p>
+    </div>
+    <div class="phase">
+      <div class="w">Week 4</div>
+      <h3>Agent loop and guardrails</h3>
+      <p>Tool adapters with schema contracts and session scoping, escalation rules, the four guardrail layers, red-team suite wired into CI.</p>
+    </div>
+    <div class="phase">
+      <div class="w">Week 5</div>
+      <h3>Serving and observability</h3>
+      <p>vLLM with LoRA hot-swap, OTel tracing, cost and drift dashboards, shadow-serving path, and a demo UI that shows the trace beside every answer.</p>
+    </div>
+    <div class="phase">
+      <div class="w">Week 6</div>
+      <h3>Write-up</h3>
+      <p>Final eval report with the ablation table, a short technical post on what the DPO stage actually changed, and the repo cleaned to a one-command reproduction.</p>
+    </div>
+  </div>
+</section>
+
+<section id="fit" class="wrap">
+  <div class="sec-head">
+    <div class="stage">10</div>
+    <h2>Mapped to the Applied AI Engineer brief</h2>
+    <p class="sub">Deriv's posting names specific responsibilities. This is where each one is answered in the system above — the point of the project is that the mapping is one-to-one and demonstrable, not adjacent.</p>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Requirement</th><th>Where it lives in Tickdesk</th></tr></thead>
+      <tbody>
+        <tr><td class="jd">Agentic LLM applications with tool-use, planning, memory and structured outputs with versioned prompts</td><td>Bounded agent loop with five schema-contracted tools, JSON-grammar-constrained outputs, conversation memory scoped per ticket, and a registry pinning prompt template versions to adapter hashes (§06)</td></tr>
+        <tr><td class="jd">RAG pipelines — hybrid dense + sparse retrieval, reranking, vector index and embedding lifecycle</td><td>BM25 + BGE-M3 fused with RRF, cross-encoder rerank to top-5, effective-dated chunks with incremental reindex on document change (§05)</td></tr>
+        <tr><td class="jd">Integrate models with internal services via tool adapters; enforce schema contracts and access controls</td><td>Read-only tool adapters with server-side session scoping; account identity never sourced from user text; one write path, deliberately unguarded (§06)</td></tr>
+        <tr><td class="jd">Feature work backed by measurable eval metrics</td><td>500-case golden set, eight gated metrics, component ablations, judge validated against human labels, CI gating on promotion (§08)</td></tr>
+        <tr><td class="jd">AI-driven security automation — classifiers, red-teaming harnesses</td><td>Injection classifier, advice/guarantee output classifier, and a 180-case adversarial suite run on every release as a hard gate (§07)</td></tr>
+        <tr><td class="jd">Safety and privacy controls — injection defence, PII redaction, policy filtering, auditability</td><td>Four-layer guardrail stack, reversible-token redaction at ingest and at request time, full per-turn audit record reconstructable months later (§07)</td></tr>
+        <tr><td class="jd">Real-time tracing and alerts on token/latency/cost, retrieval degradation, drift, hallucination risk</td><td>OTel spans per stage against an explicit latency budget, cost per conversation tracked to token accounting, retrieval-score and escalation-rate drift alerts (§02, §07)</td></tr>
+        <tr><td class="jd">Production-grade delivery, not prototypes</td><td>Shadow serving, 5% canary, automatic rollback on escalation-rate regression, one-pointer version rollback (§04, §08)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <div>
+      <div class="nm">Hryday Dochania</div>
+      <div class="rl">B.Tech Industrial Engineering, Manipal Institute of Technology. Previously product and engineering lead on a B2B supplier recommendation and ranking engine at The Dollar Business.</div>
+    </div>
+    <div class="contact">
+      <span>hryday10dochania@gmail.com</span>
+      <span>+91 81850 00300</span>
+      <span>Repository: <a href="#build">add link before sending</a></span>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
