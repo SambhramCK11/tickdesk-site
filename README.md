@@ -8,8 +8,11 @@ applied AI engineering roles.
 
 ```
 tickdesk-site/
-├── index.html    the whole site — self-contained, no build step
-└── README.md     this file
+├── public/
+│   └── index.html    the whole site — self-contained, no build step
+├── wrangler.toml     Cloudflare Workers static-asset config
+├── package.json      wrangler devDependency + npm scripts
+└── README.md         this file
 ```
 
 Everything except the web fonts is inlined, so the page works offline apart from
@@ -17,30 +20,36 @@ typography (it falls back to system faces cleanly).
 
 ## Viewing it
 
-Open `index.html` in a browser. That's it.
+Open `public/index.html` in a browser. That's it.
 
 To serve it locally instead:
 
 ```bash
-python3 -m http.server 8000
-# then open http://localhost:8000
+npm install
+npm run dev        # http://localhost:8787
 ```
 
 ## Deploying it
 
-Any static host works — drag the folder onto **Netlify Drop**, push it to a
-**GitHub Pages** repo, or run `vercel` in this directory. No framework, no
-dependencies, no build.
-
-For GitHub Pages:
+Deployed to **Cloudflare Workers** static assets — free tier, no credit card.
+Static asset requests are unmetered and do not count against the Workers
+request allowance, so this site costs nothing to run.
 
 ```bash
-git init && git add . && git commit -m "Tickdesk project site"
-git branch -M main
-git remote add origin git@github.com:<you>/tickdesk-site.git
-git push -u origin main
-# then: Settings → Pages → Deploy from branch → main / root
+npm install
+npx wrangler login      # one-time browser auth
+npm run deploy
 ```
+
+That publishes to `https://tickdesk-site.<your-subdomain>.workers.dev`.
+
+`wrangler.toml` declares no `main` script — it is an assets-only Worker, which
+means there is no server code to invoke and nothing to bill. `not_found_handling`
+is set to `single-page-application` so any path serves the one page.
+
+To attach a custom domain later, add it in the Cloudflare dashboard under
+Workers & Pages → tickdesk-site → Settings → Domains. Custom domains on
+workers.dev are free; only the domain registration itself costs money.
 
 ## Before you send this to anyone
 
