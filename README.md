@@ -53,9 +53,8 @@ workers.dev are free; only the domain registration itself costs money.
 
 ## Before you send this to anyone
 
-1. **Add your repository link.** The footer has a placeholder reading
-   "add link before sending" — replace that `<a href="#build">` with the real URL
-   once the code repo exists.
+1. ~~**Add your repository link.**~~ Done — the footer links to
+   <https://github.com/SambhramCK11/tickdesk-site>.
 2. **Decide what stays a target.** The hero metrics, dataset counts and eval
    gates are labelled as design targets against a synthetic corpus, and there's a
    visible note saying so. Keep that framing until you've actually run the
