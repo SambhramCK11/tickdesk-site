@@ -9,6 +9,7 @@ applied AI engineering roles.
 ```
 tickdesk-site/
 ├── index.html    the whole site — self-contained, no build step
+├── vercel.json   static host config: clean URLs, cache and security headers
 └── README.md     this file
 ```
 
@@ -29,8 +30,24 @@ python3 -m http.server 8000
 ## Deploying it
 
 Any static host works — drag the folder onto **Netlify Drop**, push it to a
-**GitHub Pages** repo, or run `vercel` in this directory. No framework, no
-dependencies, no build.
+**GitHub Pages** repo, or deploy to **Vercel**. No framework, no dependencies,
+no build.
+
+For Vercel, `vercel.json` is already committed, so there is nothing to
+configure. Either import the repo at [vercel.com/new](https://vercel.com/new)
+— leave Framework Preset as *Other* and all build/output fields empty — or from
+this directory:
+
+```bash
+npm i -g vercel
+vercel          # preview deployment
+vercel --prod   # production
+```
+
+The config sets `cleanUrls`, revalidates `/` on every request so edits go live
+immediately, and sends `X-Content-Type-Options`, `Referrer-Policy`,
+`X-Frame-Options` and a Content-Security-Policy that allows only the Google
+Fonts stylesheet and font files (the page ships no scripts).
 
 For GitHub Pages:
 
