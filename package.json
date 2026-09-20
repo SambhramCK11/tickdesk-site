@@ -1,0 +1,14 @@
+{
+  "name": "tickdesk-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tickdesk project site — static one-pager deployed on Cloudflare Workers.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.42.0"
+  }
+}
